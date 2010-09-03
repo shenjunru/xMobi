@@ -1,0 +1,44 @@
+<!DOCTYPE HTML>
+<html lang="en-US">
+<head>
+  <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+  <meta name="viewport" content="width=device-width,user-scalable=no,initial-scale=1.0;" />
+  <meta name="format-detection" content="telephone=no" />
+  <title>xMobi - Mutliple Drag</title>
+  <script type="text/javascript" src="../xMobi.js"></script>
+  <style type="text/css">
+    div {
+      background-color: black;
+      color: white;
+      height: 100px;
+      width: 100px;
+      text-align: center;
+      position: absolute;
+      z-index: 5;
+    }
+    #target_1{
+      top: 15px;
+      left: 15px;
+    }
+    #target_2 {
+      top: 150px;
+      left: 150px;
+    }
+    #target_3 {
+      top: 50px;
+      left: 100px;
+    }
+  </style>
+</head>
+<body>
+  <div id="target_1">Drag me 1</div>
+  <div id="target_2">Drag me 2</div>
+  <div id="target_3">Drag me 3</div>
+  <script type="text/javascript">
+    for (var i = 1; i <= 3; i++) {
+        var target = document.getElementById('target_' + i);
+        xMobi.dragable(target);
+    }
+  </script>
+</body>
+</html>

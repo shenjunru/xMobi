@@ -1,0 +1,82 @@
+<!DOCTYPE HTML>
+<html lang="en-US">
+<head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    <meta name="viewport" content="width=device-width,user-scalable=no,initial-scale=1.0;" />
+    <meta name="format-detection" content="telephone=no" />
+    <title>xMobi - Mobile JavaScript Library</title>
+    <script type="text/javascript" src="../xMobi.js"></script>
+</head>
+<body>
+    <div id="trigger" style="height:200px; background:blue"></div>
+    <div id="logs"></div>
+    <script type="text/javascript" defer="defer">
+    try {
+    (function(){
+        var
+        $trigger = document.getElementById('trigger'),
+        $logs    = document.getElementById('logs');
+        
+        function log(str){
+            if ($logs && (str || str === 0)) {
+                if (str instanceof Array) str = str.join('<br>');
+                $logs.innerHTML += str + '<br>';
+            }
+        }
+
+        //xMobi.lockScroll();
+        
+        // event: orientation
+        xMobi.onOrientation(function(orientation){
+            log(orientation + ': ' + (window.orientation || '##'));
+            log('-----------------------------');
+        });
+        
+        //event: siwpe
+        xMobi.onSwipe($trigger, function(direction){
+            log('siwpe: ' + direction);
+            log('-----------------------------');
+        });
+        
+        //event: tap
+        xMobi.onTap($trigger, function(){
+            log('tap: ' + this);
+            log('-----------------------------');
+        });
+        
+        // GEO
+        var geoWid = xMobi.GEO.watch(function(position){
+            log('latitude: ' + position.coords.latitude);
+            log('longitude: ' + position.coords.longitude);
+            log('-----------------------------');
+        }, function(error){
+            switch (error.code) {
+                case error.PERMISSION_DENIED:
+                case error.POSITION_UNAVILABLE:
+                case error.TIMEOUT:
+                xMobi.GEO.stopWatch(geoWid);
+            }
+            log('geo error: ' + error.code);
+            log('-----------------------------');
+        }, {
+            //enableHighAccuracy: true,
+            //maximumAge: 1000 * 60 * 10, // 10 mins
+            //timeout: 0
+        });
+        
+        // Apple Web App
+        xMobi.Apple.webApp({
+            statusBar: 'default',
+            icon: 'img/icon.png',
+            startupScreen: 'img/startup.png',
+            addGlossToIcon: true,
+            fixedViewport: false,
+            fullScreen: true
+        });
+    })();
+    } catch (error) {
+        alert('error: ' + (error.line || error.lineNumber) + ' - ' + error.message);
+    }
+    </script>
+</body>
+</html>

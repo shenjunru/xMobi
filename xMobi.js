@@ -13,6 +13,7 @@
 var
 NULL     = null,
 $body    = NULL,
+FN       = function(){},
 document = window.document,
 $head    = document.getElementsByTagName('head')[0],
 $docEl   = document.documentElement,
@@ -81,13 +82,15 @@ isLandscape = ('orientation' in window ? function(){
 /**
  * stop default behaviour and propagation for a event
  * 
- * @param {Event} event
+ * @param {Event}   event      event object
+ * @param {Boolean} immediate  immediately stop
  */
-stopEvent = function(event){
+stopEvent = function(event, immediate){
     if (!event.stoped) {
         event.preventDefault();
         event.stopPropagation();
         event.stoped = true;
+        if (event.imStoped = !!immediate) (event.stopImmediatePropagation || FN)();
     }
 },
 
