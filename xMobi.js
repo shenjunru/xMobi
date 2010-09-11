@@ -6,21 +6,24 @@
  * Released under the MIT License.
  * http://github.com/xfsn/xMobi
  * 
- * Date: 2010-09-02
+ * Date: 2010-09-12
  */
 (function(window, undefined){
 
 var
+version  = '1.0 beta',
 NULL     = null,
 $body    = NULL,
 FN       = function(){},
+BB       = window.blackberry,
 document = window.document,
 $head    = document.getElementsByTagName('head')[0],
 $docEl   = document.documentElement,
 $frag    = document.createElement('div'),
 geo      = navigator.geolocation,
+geoBB    = (BB || {}).location,
 support  = {
-    geo:                  !!geo,
+    geo:                  !!geo || !!geoBB,
     gesture:              typeof GestureEvent === 'object',
     touch:                typeof TouchEvent === 'object',
     WebKitCSSMatrix:      typeof WebKitCSSMatrix === 'object',
@@ -28,6 +31,7 @@ support  = {
 },
 browse   = {
     apple: support.touch && /iP(ad|od|hone)/.test(navigator.userAgent),
+    blackberry: !!window.blackberry,
     scroll: false
 },
 
@@ -79,6 +83,15 @@ isLandscape = ('orientation' in window ? function(){
 } : function(){
     return (window.innerWidth || $docEl.offsetWidth) > (window.innerHeight || $docEl.offsetHeight);
 }),
+    
+/**
+ * get current orientation
+ * 
+ * @return {String} landscape|portrait
+ */
+getOrientation = function(){
+    return isLandscape() ? 'landscape' : 'portrait';
+},
 
 /**
  * stop default behaviour and propagation for a event
@@ -106,6 +119,7 @@ stopEvent = (function(){
  * @param {Element}  node     dom element
  * @param {String}   event    event type
  * @param {Function} handler  event handler
+ * @param {Boolean}  dom0     bind as DOM 0 style
  */
 bind = (function(){
     var fnName, exName = false;
@@ -130,6 +144,7 @@ bind = (function(){
  * @param {Element}  node     dom element
  * @param {String}   event    event type
  * @param {Function} handler  event handler
+ * @param {Boolean}  dom0     bind as DOM 0 style
  */
 unbind = (function(){
     var fnName, exName = false;
@@ -205,7 +220,7 @@ hdlRegister = function(type, init){
  */
 runHdls = function(stack, instance){
     if (stack && stack.length) {
-        var i = 0, args = [].concat.apply([], arguments).slice(2);
+        var i = 0, args = [].slice.call(arguments, 2);
         try {
             while (stack[i]) {
                 stack[i++].apply(instance || window, args);
@@ -390,7 +405,7 @@ runScript = function(code, scope){
  * fill data to a template string
  * 
  * @param {String} template  a template string
- * @param {Mixed}  data      data to fill the template string
+ * @param {Object} data      data to fill the template string
  * 
  * @return {String} filled template string
  */
@@ -414,7 +429,7 @@ fillTemplate = function(template, data){
  * parse html code to dom elements
  * 
  * @param {String} template  template string
- * @param {Mixed}  data      data to fill the template string
+ * @param {Object} data      data to fill the template string
  * 
  * @return {DocumentFragment}  a DocumentFragment includes result elements
  */
@@ -474,16 +489,22 @@ appendHTML = function(node, html){
  * xMobi: Mobile JavaScript Library
  */
 xMobi = window.xMobi = {
+    version: function(){return version;},
     // Util
-    runScript: runScript,
+    extend:       extend,
+    timeStamp:    timeStamp,
+    runScript:    runScript,
     fillTemplate: fillTemplate,
     parseHTML:    parseHTML,
     parseJSON:    parseJSON,
     appendHTML:   appendHTML,
     
     // Browser Helper
-    stopEvent:   stopEvent,
-    isLandscape: isLandscape,
+    bindEvent:      bind,
+    unbindEvent:    unbind,
+    stopEvent:      stopEvent,
+    isLandscape:    isLandscape,
+    getOrientation: getOrientation,
     
     /**
      * check device is portrait
@@ -545,17 +566,13 @@ xMobi = window.xMobi = {
      * @param {Function} event handler, handler param: orientation=(landscape|portrait)
      */
     onOrientation: (function(){
-        function getState(){
-            return isLandscape() ? 'landscape' : 'portrait';
-        }
-        
         function handler(){
-            var _state = getState();
+            var _state = getOrientation();
             if (_state != state) runHdls(stack, window, state = _state);
         }
         
         var stack = [],
-        state = getState(),
+        state = getOrientation(),
         eventName = 'orientationchange';
         
         return hdlRegister(stack, function(){
@@ -594,58 +611,103 @@ xMobi = window.xMobi = {
     
     /**
      * GEO Support
+     * Error Code:
+     * - UNSUPPORT = 0;
+     * - PERMISSION_DENIED = 1;
+     * - POSITION_UNAVAILABLE = 2;
+     * - TIMEOUT = 3;
      * 
      * @see http://www.w3.org/TR/geolocation-API/
      */
-    GEO: {
-        /**
-         * register event handler for get geo location
-         * 
-         * @param {Function} event handler, handler param: position
-         * @param {Function} error handler, handler param: error
-         */
-        location: function(success, error, options){
-            if (typeof error != 'function') error = NULL;
-            if (geo && typeof success === 'function') {
-                geo.getCurrentPosition(success, function(e){
-                    geoError(e);
-                    error && error(e);
-                }, options || {});
-            } else if (error) {
-                error({code: 0});
-            }
-        },
+    GEO: (function(){
+        var
+        stack  = {},
+        $geo   = geo || geoBB,
+        mWatch = geo ? 'watchPosition' : geoBB ? 'onLocationUpdate'     : '',
+        mStop  = geo ? 'clearWatch'    : geoBB ? 'removeLocationUpdate' : '';
         
-        /**
-         * register event handler for watch geo location change
-         * 
-         * @param {Function} event handler, handler param: position
-         * @param {Function} error handler, handler param: error
-         * 
-         * @return {Integer} watch id for stop watch, this also store in success._wid
-         */
-        watch: function(success, error, options){
-            if (typeof error != 'function') error = NULL;
-            if (geo && typeof success === 'function') {
-                return success._wid = geo.watchPosition(success, function(e){
-                    geoError(e);
-                    error && error(e);
-                }, options || {});
-            } else if (error) {
-                error({code: 0});
+        function bbPosition(error){
+            var
+            latitude  = geoBB.latitude,
+            longitude = geoBB.longitude;
+            
+            if (!latitude || !longitude) {
+                error && error({code: 2});
+                return NULL;
             }
-            return 0;
-        },
-        
-        /**
-         * stop watch a geo location change event handler
-         * 
-         * @param {Integer} wid  watch id
-         */
-        stopWatch: function(wid){
-            geo && geo.clearWatch(wid);
+            return {
+                timestamp: geoBB.timestamp,
+                coords: {
+                    latitude: latitude,
+                    longitude: longitude
+                }
+            };
         }
-    },
+        
+        return {
+            /**
+             * register event handler for watch geo location change
+             * 
+             * @param {Function} event handler, handler param: position
+             * @param {Function} error handler, handler param: error
+             * 
+             * @return {Integer} watch id for stop watch, this also store in success._wid
+             */
+            watch: function(success, error, options){
+                if (typeof error !== 'function') error = NULL;
+                if ($geo && typeof success === 'function') {
+                    var $success = geo ? success : geoBB ? function(){
+                        var position = bbPosition(error);
+                        position && success(position);
+                    } : FN,
+                    wid = $geo[mWatch]($success, function(e){
+                        geoError(e);
+                        error && error(e);
+                    }, options || {}) || timeStamp();
+                    stack[wid] = $success;
+                    return success._wid = wid;
+                } else if (error) {
+                    error({code: 0});
+                }
+                return 0;
+            },
+            
+            /**
+             * stop watch a geo location change event handler
+             * 
+             * @param {Integer} wid  watch id
+             */
+            stopWatch: function(wid){
+                var $wid = geo ? wid : stack[wid];
+                if ($geo && $wid) {
+                    $wid && $geo[mStop]($wid);
+                    delete stack[wid];
+                }
+            },
+            
+            /**
+             * register event handler for get geo location
+             * 
+             * @param {Function} event handler, handler param: position
+             * @param {Function} error handler, handler param: error
+             */
+            location: function(success, error, options){
+                if (typeof error != 'function') error = NULL;
+                if ($geo && typeof success === 'function') {
+                    if (geo) geo.getCurrentPosition(success, function(e){
+                        geoError(e);
+                        error && error(e);
+                    }, options || {});
+                    else if (geoBB) {
+                        var position = bbPosition(error);
+                        position && success(position);
+                    }
+                } else if (error) {
+                    error({code: 0});
+                }
+            }
+        }
+    })(),
     
     /**
      * for Apple Device
@@ -656,7 +718,7 @@ xMobi = window.xMobi = {
         /**
          * set page as a apple web application
          * 
-         * @param {Mixed} options  app options
+         * @param {Object} options  app options
          */
         webApp: function(options){
             if (!browse.apple) return;
@@ -686,7 +748,7 @@ xMobi = window.xMobi = {
             
             // set viewport
             if (options.fixedViewport) {
-                extHead += '<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=0;"/>';
+                extHead += '<meta name="viewport" content="width=device-width,height=device-height,user-scalable=0,initial-scale=1.0,maximum-scale=1.0"/>';
             }
             
             // set full-screen
