@@ -21,9 +21,10 @@ $frag    = document.createElement('div'),
 geo      = navigator.geolocation,
 support  = {
     geo:                  !!geo,
+    gesture:              typeof GestureEvent === 'object',
     touch:                typeof TouchEvent === 'object',
     WebKitCSSMatrix:      typeof WebKitCSSMatrix === 'object',
-    WebKitAnimationEvent: typeof WebKitTransitionEvent === 'object',
+    WebKitAnimationEvent: typeof WebKitTransitionEvent === 'object'
 },
 browse   = {
     apple: support.touch && /iP(ad|od|hone)/.test(navigator.userAgent),
@@ -85,14 +86,19 @@ isLandscape = ('orientation' in window ? function(){
  * @param {Event}   event      event object
  * @param {Boolean} immediate  immediately stop
  */
-stopEvent = function(event, immediate){
-    if (!event.stoped) {
-        event.preventDefault();
-        event.stopPropagation();
-        event.stoped = true;
-        if (event.imStoped = !!immediate) (event.stopImmediatePropagation || FN)();
+stopEvent = (function(){
+    function set(event, key, value){
+        this[key] = value;
     }
-},
+    return function(event, immediate){
+        if (!event.stoped) {
+            (event.preventDefault || set).call(event, 'returnValue', false);
+            (event.stopPropagation || set).call(event, 'cancelBubble', true);
+            event.stoped = true;
+            if (event.imStoped = !!immediate) (event.stopImmediatePropagation || FN)();
+        }
+    };
+})(),
 
 /**
  * bind a event handler
@@ -282,9 +288,9 @@ touchInit = (function(){
         return (touchData || {})[getTouchId(touch)];
     }
     
-    function getDelta(touch, time){
-        var pos = position(touch),
-        start = getTauchData(touch);
+    function getDelta(touch, time, start){
+        var pos = position(touch);
+        start = start || getTauchData(touch);
         return start ? {
             node: start.node,//touch.target || touch.srcElement,
             dtime: time - start.time,
@@ -329,36 +335,33 @@ touchInit = (function(){
     function touchMove(event) {
         moved = true, event = event || window.event;
         var data, time = event.timeStamp || timeStamp();
-        try {
-            if (dragable) {
-                stopEvent(event);
-                eachTouch(event, function(event, touch){
-                    var node = touch.target,
-                    offsetPos = node.offsetPos;
-                    if (node.dragable && offsetPos) {
-                        if (data = getDelta(touch, time)) {
-                            // move element
-                            move(node,
-                                data.dx + offsetPos.x,
-                                data.dy + offsetPos.y
-                            );
-                        }
-                    }
-                });
-            } else if (!isMultiTouch(event)) {
-                if (data = getDelta(getTouch(event), time)) {
-                    var node = data.node,
-                    absX = Math.abs(data.dx),
-                    absY = Math.abs(data.dy);
-                    
-                    if (absX > absY && (absX > 60) && data.dtime < 1000) {
-                        release();
-                        runHdls(getEventStack(node, 'swipe'), node, data.dx < 0 ? 'left' : 'right', event);
+        if (dragable) {
+            stopEvent(event);
+            eachTouch(event, function(event, touch){
+                data = getTauchData(touch);
+                var node = data.node,
+                offsetPos = node.offsetPos;
+                if (node.dragable && offsetPos) {
+                    if (data = getDelta(touch, time, data)) {
+                        // move element
+                        move(node,
+                            data.dx + offsetPos.x,
+                            data.dy + offsetPos.y
+                        );
                     }
                 }
+            });
+        } else if (!isMultiTouch(event)) {
+            if (data = getDelta(getTouch(event), time)) {
+                var node = data.node,
+                absX = Math.abs(data.dx),
+                absY = Math.abs(data.dy);
+                
+                if (absX > absY && (absX > 60) && data.dtime < 1000) {
+                    release();
+                    runHdls(getEventStack(node, 'swipe'), node, data.dx < 0 ? 'left' : 'right', event);
+                }
             }
-        } catch (e) {
-            error(e);
         }
     }
     
