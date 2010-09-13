@@ -72,6 +72,20 @@ extend = function(destination, source){
     }
     return destination;
 },
+
+/**
+ * call a function
+ * 
+ * @param {Function} fn        a function
+ * @param {Object}   instance  a instance
+ */
+call = function(fn, instance){
+    if (typeof fn === 'function') try {
+        return fn.apply(instance || NULL, [].slice.call(arguments, 2));
+    } catch (e) {
+        error(e);
+    }
+},
         
 /**
  * check device is landscape
@@ -173,7 +187,7 @@ unbind = (function(){
  */
 getEventStack = function(node, type){
     var stack = node.stack || $docEl.stack || {};
-    return stack[type] || NULL;
+    return stack[type] || [];
 },
 
 /**
@@ -196,14 +210,16 @@ initEventStack = function(node, type){
  * 
  * @param {Array|String} type  Array: event handlers stack, String: event type
  * @param {Function}     init  run once after register first handler
+ * @param {Boolean}      one   only one handler can be registered
  * 
  * @return {Function} event register function
  */
-hdlRegister = function(type, init){
+hdlRegister = function(type, init, one){
     return function(node, handler){
         if (type) {
             if (typeof type === 'string') stack = initEventStack(node, type);
             else if (type instanceof Array) stack = type, handler = node;
+            if (one) stack.length = 0;
             handler && typeof handler === 'function' && stack.push(handler);
         }
         init && runInit(init, type);
@@ -218,7 +234,7 @@ hdlRegister = function(type, init){
  * @param {Object} rest parameters for event handler
  * 
  */
-runHdls = function(stack, instance){
+runStack = function(stack, instance){
     if (stack && stack.length) {
         var i = 0, args = [].slice.call(arguments, 2);
         try {
@@ -318,9 +334,19 @@ touchInit = (function(){
         return getTouches(event).length > 1;
     }
     
-    function move(node, x, y){
-        node.style.left = x + 'px';
-        node.style.top  = y + 'px';
+    function newPosition(data){
+        return {
+            x: data.posX + data.dx,
+            y: data.posY + data.dy
+        };
+    }
+    
+    function move(node, data){
+        data = call(getEventStack(node, 'drag')[0] || newPosition, node, data, newPosition);
+        if (data) {
+            node.style.left = data.x + 'px';
+            node.style.top = data.y + 'px';
+        }
     }
     
     function release(){
@@ -359,10 +385,12 @@ touchInit = (function(){
                 if (node.dragable && offsetPos) {
                     if (data = getDelta(touch, time, data)) {
                         // move element
-                        move(node,
-                            data.dx + offsetPos.x,
-                            data.dy + offsetPos.y
-                        );
+                        move(node, {
+                            posX: offsetPos.x,
+                            posY: offsetPos.y,
+                            dx:   data.dx,
+                            dy:   data.dy
+                        });
                     }
                 }
             });
@@ -382,7 +410,7 @@ touchInit = (function(){
     
     function touchEnd(event){
         release();
-        if (!moved && tapNode) runHdls(getEventStack(tapNode, 'tap'), tapNode, event || window.event);
+        if (!moved && tapNode) runStack(getEventStack(tapNode, 'tap'), tapNode, event || window.event);
     }
     
     return function(key){
@@ -485,12 +513,33 @@ appendHTML = function(node, html){
     return node;
 },
 
+cssClass = function(node, names, remove){
+    remove = !!remove;
+    if (!node.className) {
+        if (!remove) node.className = names;
+    } else {
+        names = (names || '').split(/\s+/);
+        var name,
+        i = 0,
+        l = names.length,
+        space = ' ',
+        result = space + node.className.replace(/[\n\t]/g, space) + space;
+        for (; i < l; i++) {
+            name = names[i] + space;
+            if (remove) result = result.replace(space + name, space);
+            else if (result.indexOf(space + name) < 0) result += name;
+        }
+        node.className = result.replace(/^\s+|\s+$/g, '');
+    }
+},
+
 /**
  * xMobi: Mobile JavaScript Library
  */
 xMobi = window.xMobi = {
     version: function(){return version;},
     // Util
+    call:         call,
     extend:       extend,
     timeStamp:    timeStamp,
     runScript:    runScript,
@@ -505,6 +554,12 @@ xMobi = window.xMobi = {
     stopEvent:      stopEvent,
     isLandscape:    isLandscape,
     getOrientation: getOrientation,
+    addClass: function(node, names){
+        cssClass(node, names);
+    },
+    delClass: function(node, names){
+        cssClass(node, names, true);
+    },
     
     /**
      * check device is portrait
@@ -536,7 +591,7 @@ xMobi = window.xMobi = {
             if (!isReady) {
                 isReady = true;
                 readyHandler && unbind(document, readyEvent, readyHandler);
-                runHdls(stack, document);
+                runStack(stack, document);
             }
         }
         
@@ -568,7 +623,7 @@ xMobi = window.xMobi = {
     onOrientation: (function(){
         function handler(){
             var _state = getOrientation();
-            if (_state != state) runHdls(stack, window, state = _state);
+            if (_state != state) runStack(stack, window, state = _state);
         }
         
         var stack = [],
@@ -601,6 +656,7 @@ xMobi = window.xMobi = {
     })(),
     
     /**
+     * set node be dragable
      * 
      * @param {Element} node    the dom element
      * @param {Boolean} enable  is dragable
@@ -608,6 +664,64 @@ xMobi = window.xMobi = {
     dragable: function(node, enable){
         node && (node.dragable = arguments.length === 1 ? true : !!enable) && runInit(touchInit);
     },
+    
+    /**
+     * register event handler for drag element, one element only can have one drag handler
+     * 
+     * @param {Element}  node     the dom element
+     * @param {Function} handler  event handler, handler param: event
+     */
+    onDrag: (function(){
+        return hdlRegister('drag', touchInit, true);
+    })(),
+    
+    /**
+     * set node be scrollable
+     * 
+     * @param {Element} node     the dom element
+     * @param {Element} trigger  the dom element
+     * @param {Boolean} enable   is scrollable
+     */
+    scrollable: (function(){
+        var scrollHeight = 0, scrollWidth = 0;
+        
+        function scroll(node, trigger, data){
+            var
+            left = scrollWidth + data.dx,
+            top = scrollHeight + data.dy,
+            minLeft = Math.max(0, node.offsetWidth - trigger.offsetWidth),
+            minTop  = Math.max(0, node.offsetHeight - trigger.offsetHeight);
+            
+            left = data.dx < 0
+                ? 0 - Math.min(Math.abs(left), minLeft)
+                : Math.min(left, 0);
+            
+            top = data.dy < 0
+                ? 0 - Math.min(Math.abs(top), minTop)
+                : Math.min(top, 0);
+            
+            uiList.style.left = left + 'px';
+            uiList.style.top  = top + 'px';
+        }
+        
+        function start(node){
+            scrollHeight = node.offsetTop;
+            scrollWidth  = node.offsetLeft;
+        }
+        
+        return function(node, trigger, enable){
+            if (!('scrollable' in node)) {
+                // bind event handler
+                bind(trigger, support.touch ? 'touchstart' : 'mousedown', function(){
+                    node.scrollable && start(node);
+                });
+                xMobi.onDrag(trigger, function(data){
+                    node.scrollable && scroll(node, trigger, data);
+                });
+            }
+            xMobi.dragable(trigger, node.scrollable = arguments.length === 2 ? true : !!enable);
+        }
+    })(),
     
     /**
      * GEO Support
@@ -787,3 +901,4 @@ xMobi.onReady(function(){
 });
 
 })(window);
+
