@@ -700,8 +700,8 @@ xMobi = window.xMobi = {
                 ? 0 - Math.min(Math.abs(top), minTop)
                 : Math.min(top, 0);
             
-            uiList.style.left = left + 'px';
-            uiList.style.top  = top + 'px';
+            node.style.left = left + 'px';
+            node.style.top  = top + 'px';
         }
         
         function start(node){
