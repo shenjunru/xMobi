@@ -3,6 +3,26 @@ xMobile - Mobile JavaScript Library
 Copyright 2010, Shen Junru
 Released under the MIT License.
 
+Desktop Browser Support:
+    IE 6+
+    FireFox
+    Safari
+    Chrome
+    Opera
+
+Mobile Browser Support:
+    Safari on iPhone / iPod Touch / iPad
+    Android 1.5+
+    BlackBerry 4.6+
+
+Features:
+    Touch / MultiTouch Events
+      - Element Drag
+      - Element Swipe
+      - Element Tap
+      - Element Scroll
+    GEO Location
+
 More information:
     http://github.com/xfsn/xMobi
 
