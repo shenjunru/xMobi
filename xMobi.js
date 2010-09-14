@@ -402,7 +402,7 @@ touchInit = (function(){
                 
                 if (absX > absY && (absX > 60) && data.dtime < 1000) {
                     release();
-                    runHdls(getEventStack(node, 'swipe'), node, data.dx < 0 ? 'left' : 'right', event);
+                    runStack(getEventStack(node, 'swipe'), node, data.dx < 0 ? 'left' : 'right', event);
                 }
             }
         }
