@@ -6,34 +6,44 @@
  * Released under the MIT License.
  * http://github.com/xfsn/xMobi
  * 
- * Date: 2010-09-12
+ * Date: 2010-09-16
  */
 (function(window, undefined){
 
 var
 version  = '1.0 beta',
 NULL     = null,
+FALSE    = false,
+TRUE     = true,
 $body    = NULL,
 FN       = function(){},
-BB       = window.blackberry,
 document = window.document,
 $head    = document.getElementsByTagName('head')[0],
 $docEl   = document.documentElement,
 $frag    = document.createElement('div'),
-geo      = navigator.geolocation,
-geoBB    = (BB || {}).location,
+UA       = navigator.userAgent,
+GEO      = navigator.geolocation,
+BB       = window.blackberry,
+OPERA    = window.opera,
+BBGeo    = (BB || {}).location,
 support  = {
-    geo:                  !!geo || !!geoBB,
+    geo:                  !!GEO || !!BBGeo,
     gesture:              typeof GestureEvent === 'object',
     touch:                typeof TouchEvent === 'object',
     WebKitCSSMatrix:      typeof WebKitCSSMatrix === 'object',
     WebKitAnimationEvent: typeof WebKitTransitionEvent === 'object'
 },
-browse   = {
-    apple: support.touch && /iP(ad|od|hone)/.test(navigator.userAgent),
-    blackberry: !!window.blackberry,
-    scroll: false
-},
+browser  = (function(){
+    var flag;
+    return {
+        BlackBerry:  flag ? FALSE : (flag = !!window.blackberry),
+        Apple:       flag ? FALSE : (flag = support.touch && /iP(ad|od|hone)/.test(UA)),
+        Android:     flag ? FALSE : (flag = support.touch && /Android/.test(UA)),
+        OperaMini:   flag ? FALSE : (flag = !!OPERA && /Opera Mini/.test(UA)),
+        OperaMobile: flag ? FALSE : (flag = !!OPERA && /Opera Mobi/.test(UA)),
+        scroll:      FALSE
+    };
+})(),
 
 /**
  * log error message
@@ -119,9 +129,9 @@ stopEvent = (function(){
     }
     return function(event, immediate){
         if (!event.stoped) {
-            (event.preventDefault || set).call(event, 'returnValue', false);
-            (event.stopPropagation || set).call(event, 'cancelBubble', true);
-            event.stoped = true;
+            (event.preventDefault || set).call(event, 'returnValue', FALSE);
+            (event.stopPropagation || set).call(event, 'cancelBubble', TRUE);
+            event.stoped = TRUE;
             if (event.imStoped = !!immediate) (event.stopImmediatePropagation || FN)();
         }
     };
@@ -136,10 +146,10 @@ stopEvent = (function(){
  * @param {Boolean}  dom0     bind as DOM 0 style
  */
 bind = (function(){
-    var fnName, exName = false;
+    var fnName, exName = FALSE;
     
     ((fnName = 'addEventListener') in document)
-    || ((exName = true) && (fnName = 'attachEvent') in document)
+    || ((exName = TRUE) && (fnName = 'attachEvent') in document)
     || (fnName = '');
     
     return function(node, event, handler, dom0){
@@ -147,7 +157,7 @@ bind = (function(){
         if (node && event && handler) {
             if (!special && (dom0 || exName)) event = 'on' + event;
             if (!special && (dom0 || !fnName)) node[event] = handler;
-            else fnName && node[fnName](event, handler, false);
+            else fnName && node[fnName](event, handler, FALSE);
         }
     };
 })(),
@@ -161,10 +171,10 @@ bind = (function(){
  * @param {Boolean}  dom0     bind as DOM 0 style
  */
 unbind = (function(){
-    var fnName, exName = false;
+    var fnName, exName = FALSE;
     
     ((fnName = 'removeEventListener') in document)
-    || ((exName = true) && (fnName = 'detachEvent') in document)
+    || ((exName = TRUE) && (fnName = 'detachEvent') in document)
     || (fnName = '');
     
     return function(node, event, handler, dom0){
@@ -172,7 +182,7 @@ unbind = (function(){
         if (node && event && handler) {
             if (!special && (dom0 || exName)) event = 'on' + event;
             if (!special && (dom0 || !fnName)) node[event] = NULL;
-            else fnName && node[fnName](event, handler, false);
+            else fnName && node[fnName](event, handler, FALSE);
         }
     };
 })(),
@@ -356,7 +366,7 @@ touchInit = (function(){
     
     function touchStart(event){
         event = event || window.event;
-        touchData = {}, dragable = moved = false, tapNode = NULL;
+        touchData = {}, dragable = moved = FALSE, tapNode = NULL;
         eachTouch(event, function(event, touch){
             var data = touchData[getTouchId(touch)] = getData(event, touch),
             node = tapNode = data.node;
@@ -374,7 +384,7 @@ touchInit = (function(){
     }
     
     function touchMove(event) {
-        moved = true, event = event || window.event;
+        moved = TRUE, event = event || window.event;
         var data, time = event.timeStamp || timeStamp();
         if (dragable) {
             stopEvent(event);
@@ -558,7 +568,7 @@ xMobi = window.xMobi = {
         cssClass(node, names);
     },
     delClass: function(node, names){
-        cssClass(node, names, true);
+        cssClass(node, names, TRUE);
     },
     
     /**
@@ -576,7 +586,7 @@ xMobi = window.xMobi = {
      * @param {Boolean} lock
      */
     lockScroll: function(lock){
-        browse.scroll = arguments.length ? !!lock : true;
+        browser.scroll = arguments.length ? !!lock : TRUE;
     },
     
     /**
@@ -589,7 +599,7 @@ xMobi = window.xMobi = {
         
         function ready(){
             if (!isReady) {
-                isReady = true;
+                isReady = TRUE;
                 readyHandler && unbind(document, readyEvent, readyHandler);
                 runStack(stack, document);
             }
@@ -662,7 +672,7 @@ xMobi = window.xMobi = {
      * @param {Boolean} enable  is dragable
      */
     dragable: function(node, enable){
-        node && (node.dragable = arguments.length === 1 ? true : !!enable) && runInit(touchInit);
+        node && (node.dragable = arguments.length === 1 ? TRUE : !!enable) && runInit(touchInit);
     },
     
     /**
@@ -672,7 +682,7 @@ xMobi = window.xMobi = {
      * @param {Function} handler  event handler, handler param: event
      */
     onDrag: (function(){
-        return hdlRegister('drag', touchInit, true);
+        return hdlRegister('drag', touchInit, TRUE);
     })(),
     
     /**
@@ -719,7 +729,7 @@ xMobi = window.xMobi = {
                     node.scrollable && scroll(node, trigger, data);
                 });
             }
-            xMobi.dragable(trigger, node.scrollable = arguments.length === 2 ? true : !!enable);
+            xMobi.dragable(trigger, node.scrollable = arguments.length === 2 ? TRUE : !!enable);
         }
     })(),
     
@@ -736,21 +746,21 @@ xMobi = window.xMobi = {
     GEO: (function(){
         var
         stack  = {},
-        $geo   = geo || geoBB,
-        mWatch = geo ? 'watchPosition' : geoBB ? 'onLocationUpdate'     : '',
-        mStop  = geo ? 'clearWatch'    : geoBB ? 'removeLocationUpdate' : '';
+        $GEO   = GEO || BBGeo,
+        mWatch = GEO ? 'watchPosition' : BBGeo ? 'onLocationUpdate'     : '',
+        mStop  = GEO ? 'clearWatch'    : BBGeo ? 'removeLocationUpdate' : '';
         
         function bbPosition(error){
             var
-            latitude  = geoBB.latitude,
-            longitude = geoBB.longitude;
+            latitude  = BBGeo.latitude,
+            longitude = BBGeo.longitude;
             
             if (!latitude || !longitude) {
                 error && error({code: 2});
                 return NULL;
             }
             return {
-                timestamp: geoBB.timestamp,
+                timestamp: BBGeo.timestamp,
                 coords: {
                     latitude: latitude,
                     longitude: longitude
@@ -769,12 +779,12 @@ xMobi = window.xMobi = {
              */
             watch: function(success, error, options){
                 if (typeof error !== 'function') error = NULL;
-                if ($geo && typeof success === 'function') {
-                    var $success = geo ? success : geoBB ? function(){
+                if ($GEO && typeof success === 'function') {
+                    var $success = GEO ? success : BBGeo ? function(){
                         var position = bbPosition(error);
                         position && success(position);
                     } : FN,
-                    wid = $geo[mWatch]($success, function(e){
+                    wid = $GEO[mWatch]($success, function(e){
                         geoError(e);
                         error && error(e);
                     }, options || {}) || timeStamp();
@@ -792,9 +802,9 @@ xMobi = window.xMobi = {
              * @param {Integer} wid  watch id
              */
             stopWatch: function(wid){
-                var $wid = geo ? wid : stack[wid];
-                if ($geo && $wid) {
-                    $wid && $geo[mStop]($wid);
+                var $wid = GEO ? wid : stack[wid];
+                if ($GEO && $wid) {
+                    $wid && $GEO[mStop]($wid);
                     delete stack[wid];
                 }
             },
@@ -807,12 +817,12 @@ xMobi = window.xMobi = {
              */
             location: function(success, error, options){
                 if (typeof error != 'function') error = NULL;
-                if ($geo && typeof success === 'function') {
-                    if (geo) geo.getCurrentPosition(success, function(e){
+                if ($GEO && typeof success === 'function') {
+                    if (GEO) GEO.getCurrentPosition(success, function(e){
                         geoError(e);
                         error && error(e);
                     }, options || {});
-                    else if (geoBB) {
+                    else if (BBGeo) {
                         var position = bbPosition(error);
                         position && success(position);
                     }
@@ -835,16 +845,16 @@ xMobi = window.xMobi = {
          * @param {Object} options  app options
          */
         webApp: function(options){
-            if (!browse.apple) return;
+            if (!browser.apple) return;
             
             var extHead = '';
             
             options = extend({
-                addGlossToIcon: true,
+                addGlossToIcon: TRUE,
                 icon: NULL,
                 startupScreen: NULL,
-                fixedViewport: true,
-                fullScreen: true,
+                fixedViewport: TRUE,
+                fullScreen: TRUE,
                 statusBar: 'default' // other options: black-translucent, black
             }, options || {});
             
@@ -882,23 +892,28 @@ xMobi = window.xMobi = {
  * Browser Support Check
  */
 (function(){
-var key, BSupport = xMobi.Support = {};
-function genFn(key) {
+var key,
+Support = xMobi.Support = {},
+Browser = Support.Browser = {};
+function genSupport(key) {
     return function(){
         return support[key];
-    }
+    };
 }
-for (key in support) {
-    BSupport[key] = genFn(key);
+function genBrowser(key) {
+    return function(){
+        return browser[key];
+    };
 }
+for (key in support) Support[key] = genSupport(key);
+for (key in browser) Browser[key] = genBrowser(key);
 })();
 
 xMobi.onReady(function(){
     $body = document.body;
     support.touch && bind($body, 'touchmove', function(event){
-        browse.scroll && event.preventDefault();
+        browser.scroll && event.preventDefault();
     });
 });
 
 })(window);
-
