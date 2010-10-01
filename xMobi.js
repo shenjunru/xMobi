@@ -1,5 +1,5 @@
 /*!
- * xMobile - Mobile JavaScript Library
+ * xMobi - Mobile JavaScript Library
  * version 1.0 beta
  * 
  * Copyright 2010, Shen Junru
@@ -834,9 +834,7 @@ xMobi = window.xMobi = {
     })(),
     
     /**
-     * for Apple Device
-     * 
-     * iPhone, iPod Touch, iPad
+     * for Apple Device: iPhone, iPod Touch, iPad
      */
     Apple: {
         /**
