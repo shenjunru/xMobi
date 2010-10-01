@@ -1,12 +1,12 @@
 /*!
- * xMobi - AutoComplete
+ * xMobi - Suggest Module
  * version 1.0 beta
  * 
  * Copyright 2010, Shen Junru
  * Released under the MIT License.
  * http://github.com/xfsn/xMobi
  * 
- * Date: 2010-09-09
+ * Date: 2010-10-01
  */
 
 (function(window, undefined){
@@ -32,19 +32,13 @@ keyCode  = {
  * event handler
  * 
  * @param {Event}        event     event object
- * @param {AutoComplete} instance  AutoComplete instance
+ * @param {Suggest} instance  Suggest instance
  */
 keyDown = function(event, instance) {
     if (instance.disabled) return;
     event = event || window.event;
     var element = event.target || event.srcElement;
     switch(event.keyCode) {
-        case keyCode.PAGE_UP:
-            instance.prevPage();
-            break;
-        case keyCode.PAGE_DOWN:
-            instance.nextPage();
-            break;
         case keyCode.UP:
             instance.prev();
             xMobi.stopEvent(event);
@@ -161,13 +155,13 @@ call = function(fn, instance){
 },
 
 /**
- * Class: Auto Complete
+ * Class: Suggest
  * 
  * @param {Element} uiInput    dom element for input
  * @param {Element} uiResults  dom element for render results
- * @param {Object}  options    auto complete options
+ * @param {Object}  options    initialize options
  */
-AutoComplete = xMobi.AutoComplete = function(uiInput, uiResults, options){
+Suggest = xMobi.Suggest = function(uiInput, uiResults, options){
     var self = this;
     self.options = options = xMobi.extend({
         // minimum characters for search
@@ -213,11 +207,12 @@ AutoComplete = xMobi.AutoComplete = function(uiInput, uiResults, options){
     uiInput.setAttribute('autocomplete', 'off');
     options.init && self.init();
 };
-AutoComplete.version = function(){return version;};
-AutoComplete.constructor = AutoComplete;
-AutoComplete.prototype = {
+Suggest.version = function(){return version;};
+Suggest.filter = filter;
+Suggest.constructor = Suggest;
+Suggest.prototype = {
     /**
-     * initialize this auto complete
+     * initialize
      */
     init: function(){
         var self = this, options = self.options;
@@ -247,10 +242,10 @@ AutoComplete.prototype = {
     },
     
     /**
-     * bind a source for auto complete
-     * if source is a function, source parameter is 'term' for search.
+     * bind a source
+     * if source is a function, the function parameter is 'term' for search.
      * 
-     * @param {Array,Function} source  source for auto complete
+     * @param {Array,Function} source  source of suggest options
      */
     bindSource: function(source) {
         var self = this, array, url;
@@ -458,7 +453,7 @@ AutoComplete.prototype = {
     },
     
     /**
-     * check autocomplete is actived or not
+     * check Suggest is actived or not
      * 
      * @return {Boolean}
      */
