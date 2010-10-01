@@ -1,0 +1,73 @@
+<!DOCTYPE HTML>
+<html lang="en-US">
+<head>
+  <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+  <meta name="viewport" content="user-scalable=no,initial-scale=1.0,maximum-scale=1.0" />
+  <meta name="viewport" content="width=device-width" />
+  <meta name="format-detection" content="telephone=no" />
+  <title>xMobi - Scrollable</title>
+  <script type="text/javascript" src="../xMobi.js"></script>
+  <style type="text/css">
+    div#container {
+      overflow: hidden;
+      height: 100px;
+      width: 200px;
+      position: relative;
+    }
+    
+    div#scroll {
+      position: absolute;
+      height: 100px;
+      width: 100%;
+      top: 0;
+      left: 0;
+      z-index: 100;
+    }
+    
+    ul {
+      position: relative;
+      padding: 0;
+      margin: 0;
+      display: block;
+      z-index:90;
+    }
+    
+    li {
+      display: block;
+      height: 20px;
+    }
+    
+    li.odd {
+      background: red;
+    }
+    
+    li.even {
+      background: blue;
+    }
+  </style>
+</head>
+<body>
+  <div id="container">
+    <div id="scroll"></div>
+    <ul id="list">
+      <li class="item odd">1</li>
+      <li class="item even">2</li>
+      <li class="item odd">3</li>
+      <li class="item even">4</li>
+      <li class="item odd">5</li>
+      <li class="item even">6</li>
+      <li class="item odd">7</li>
+      <li class="item even">8</li>
+      <li class="item odd">9</li>
+      <li class="item even">10</li>
+    </ul>
+  </div>
+  <script type="text/javascript">
+    function $(id){
+        return document.getElementById(id);
+    }
+    
+    xMobi.scrollable($('list'), $('scroll'), true);
+  </script>
+</body>
+</html>
