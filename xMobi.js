@@ -6,7 +6,7 @@
  * Released under the MIT License.
  * http://github.com/xfsn/xMobi
  * 
- * Date: 2010-09-16
+ * Date: 2010-12-30
  */
 (function(window, undefined){
 
@@ -222,18 +222,18 @@ initEventStack = function(node, type){
  * @param {Function}     init  run once after register first handler
  * @param {Boolean}      one   only one handler can be registered
  * 
- * @return {Function} event register function
+ * @return {Function} event handler register function
  */
 hdlRegister = function(type, init, one){
-    return function(node, handler){
-        if (type) {
-            if (typeof type === 'string') stack = initEventStack(node, type);
-            else if (type instanceof Array) stack = type, handler = node;
-            if (one) stack.length = 0;
-            handler && typeof handler === 'function' && stack.push(handler);
-        }
+    var isArray = type instanceof Array;
+    return type ? function(node, handler){
+        var stack = type;
+        if (isArray) handler = node;
+        else stack = initEventStack(node, type);
+        if (one) stack.length = 0;
+        typeof handler === 'function' && stack.push(handler);
         init && runInit(init, type);
-    };
+    } : FN;
 },
 
 /**
@@ -268,6 +268,8 @@ runInit = function(init, params){
 
 /**
  * touch event initializing function
+ * 
+ * @param {String} key  touch event name
  */
 touchInit = (function(){
     var startEvent, moveEvent, endEvent, touchData, dragable, moved, tapNode;
@@ -282,7 +284,37 @@ touchInit = (function(){
         endEvent   = 'mouseup';
     }
     
-    function position(touch) {
+    var
+    /**
+     * get an array of touche event objects
+     * @param {Event} event  event object
+     * @return {Array}
+     */
+    getTouches = function(event){
+        return support.touch ? event.touches || [] : [event];
+    },
+    /**
+     * get first touch touch event object
+     * @param {Event} event  event object
+     * @return {TtouchEvent|Event}
+     */
+    getTouch = function(event){
+        return support.touch ? event.targetTouches[0] || {} : event;
+    },
+    /**
+     * get touch's identifier
+     * @param {TtouchEvent|Event} touch  touch event object
+     * @return {Number} identifier
+     */
+    getTouchId = function(touch){
+        return touch.identifier || 0;
+    },
+    /**
+     * return the click position of the page
+     * @param {TtouchEvent|Event} touch  touch event object
+     * @return {Object} {x,y}
+     */
+    getPosition = function(touch) {
         return {
             x: touch.pageX || (
                 touch.clientX +
@@ -295,42 +327,50 @@ touchInit = (function(){
                 ($docEl.clientTop || 0)
             )
         };
-    }
-    
-    function getData(event, touch){
-        var pos = position(touch);
+    },
+    /**
+     * get touch start data by touch event object
+     * @param {TtouchEvent|Event} touch  touch event object
+     * return {Object} {x,y,time,node}
+     */
+    getTauchData = function(touch){
+        return (touchData || {})[getTouchId(touch)];
+    },
+    /**
+     * get touch relate data
+     * @param {Event}             event  event object
+     * @param {TtouchEvent|Event} touch  touch event object
+     * @return {Object} {x,y,time,node}
+     */
+    getData = function(event, touch){
+        var pos = getPosition(touch);
         return {
             time: event.timeStamp || timeStamp(),
             node: touch.target || touch.srcElement,
             x: pos.x,
             y: pos.y
         };
-    }
-    
-    function getTouch(event){
-        return support.touch ? event.targetTouches[0] || {} : event;
-    }
-    
-    function getTouches(event){
-        return support.touch ? event.touches || [] : [event];
-    }
-    
-    function getTouchId(touch){
-        return touch.identifier || 0;
-    }
-    
-    function eachTouch(event, each){
+    },
+    /**
+     * exec iterator for each touch event object
+     * @param {Event}    event     event object
+     * @param {Function} iterator  iterator function
+     * @return {Number} number of touch event object
+     */
+    eachTouch = function(event, iterator){
         var touch, i = 0, touches = getTouches(event);
-        while ((touch = touches[i++])) each(event, touch);
+        while ((touch = touches[i++])) iterator(event, touch);
         return touches.length;
-    }
-    
-    function getTauchData(touch){
-        return (touchData || {})[getTouchId(touch)];
-    }
-    
-    function getDelta(touch, time, start){
-        var pos = position(touch);
+    },
+    /**
+     * get delta data by touch move
+     * @param {TtouchEvent|Event} touch  touch event object
+     * @param {Number}            time   timestamp of touch move event
+     * @param {Object}            start  touch start data
+     * @return {Object|null} {dx,dy,dtime,node}
+     */
+    getDelta = function(touch, time, start){
+        var pos = getPosition(touch);
         start = start || getTauchData(touch);
         return start ? {
             node: start.node,//touch.target || touch.srcElement,
@@ -338,52 +378,84 @@ touchInit = (function(){
             dx: pos.x - start.x,
             dy: pos.y - start.y
         } : NULL;
-    }
-    
-    function isMultiTouch(event){
+    },
+    /**
+     * check event is multi-touch event
+     * @param {Event} event  event object
+     * @return {Boolean}
+     */
+    isMultiTouch = function(event){
         return getTouches(event).length > 1;
-    }
-    
-    function newPosition(data){
+    },
+    /**
+     * get dragable node or it's ancestor node
+     * @param {Element} node  where to start check
+     * @return {Element|null}
+     */
+    getDragable = function(node){
+        do {
+            if (node.dragable) return node;
+        } while((node = node.parentNode) && (node !== $docEl));
+    },
+    /**
+     * calculate the new position for moving element
+     * @param {Object} data  the position data
+     * @return {Object} new position {x,y}
+     */
+    newPosition = function(data){
         return {
-            x: data.posX + data.dx,
-            y: data.posY + data.dy
+            x: data.x + data.dx,
+            y: data.y + data.dy
         };
-    }
-    
-    function move(node, data){
+    },
+    /**
+     * move the element
+     * @param {Element} node  the element to move
+     * @param {Object}  data  the position data, this is not the final position data
+     */
+    move = function(node, data){
+        // call custom drag event handler or newPosition to calculate the new position data
         data = call(getEventStack(node, 'drag')[0] || newPosition, node, data, newPosition);
         if (data) {
             node.style.left = data.x + 'px';
             node.style.top = data.y + 'px';
         }
-    }
-    
-    function release(){
+    },
+    /**
+     * unbind touchMove and touchEnd event handler
+     */
+    release = function(){
         unbind($docEl, moveEvent, touchMove);
         unbind($docEl, endEvent,  touchEnd);
-    }
-    
-    function touchStart(event){
+    },
+    /**
+     * event handler: touchStart
+     * @param {Event} event  event object
+     */
+    touchStart = function(event){
         event = event || window.event;
         touchData = {}, dragable = moved = FALSE, tapNode = NULL;
         eachTouch(event, function(event, touch){
             var data = touchData[getTouchId(touch)] = getData(event, touch),
             node = tapNode = data.node;
-            if (!!node.dragable) {
-                node.offsetPos = {
+            if (node = getDragable(node)) {
+                dragable    = dragable || TRUE;
+                data.node   = node;
+                data.offset = {
                     x: node.offsetLeft,
                     y: node.offsetTop
                 };
-                dragable = dragable || node.dragable;
             }
         }) > 1 && (tapNode = NULL);
         dragable && stopEvent(event);
         bind($docEl, moveEvent, touchMove);
         bind($docEl, endEvent,  touchEnd);
-    }
-    
-    function touchMove(event) {
+    },
+    /**
+     * event handler: touchMove
+     * @param {Event} event  event object
+     */
+    touchMove = function(event) {
         moved = TRUE, event = event || window.event;
         var data, time = event.timeStamp || timeStamp();
         if (dragable) {
@@ -391,17 +463,15 @@ touchInit = (function(){
             eachTouch(event, function(event, touch){
                 data = getTauchData(touch);
                 var node = data.node,
-                offsetPos = node.offsetPos;
-                if (node.dragable && offsetPos) {
-                    if (data = getDelta(touch, time, data)) {
-                        // move element
-                        move(node, {
-                            posX: offsetPos.x,
-                            posY: offsetPos.y,
-                            dx:   data.dx,
-                            dy:   data.dy
-                        });
-                    }
+                offset   = data.offset;
+                if (node.dragable && offset && (data = getDelta(touch, time, data))) {
+                    // move element
+                    move(node, {
+                        x:  offset.x,
+                        y:  offset.y,
+                        dx: data.dx,
+                        dy: data.dy
+                    });
                 }
             });
         } else if (!isMultiTouch(event)) {
@@ -416,12 +486,15 @@ touchInit = (function(){
                 }
             }
         }
-    }
-    
-    function touchEnd(event){
+    },
+    /**
+     * event handler: touchEnd
+     * @param {Event} event  event object
+     */
+    touchEnd = function(event){
         release();
         if (!moved && tapNode) runStack(getEventStack(tapNode, 'tap'), tapNode, event || window.event);
-    }
+    };
     
     return function(key){
         initEventStack($docEl, key);
@@ -636,12 +709,12 @@ xMobi = window.xMobi = {
             if (_state != state) runStack(stack, window, state = _state);
         }
         
-        var stack = [],
-        state = getOrientation(),
+        var state = getOrientation(),
         eventName = 'orientationchange';
+        eventName = 'on' + eventName in window ? eventName : 'resize';
         
-        return hdlRegister(stack, function(){
-            bind(window, 'on' + eventName in window ? eventName : 'resize', handler);
+        return hdlRegister([], function(){
+            bind(window, eventName, handler);
         });
     })(),
     
