@@ -28,10 +28,10 @@ OPERA    = window.opera,
 BBGeo    = (BB || {}).location,
 support  = {
     geo:                  !!GEO || !!BBGeo,
-    gesture:              typeof GestureEvent === 'object',
-    touch:                typeof TouchEvent === 'object',
-    WebKitCSSMatrix:      typeof WebKitCSSMatrix === 'object',
-    WebKitAnimationEvent: typeof WebKitTransitionEvent === 'object'
+    gesture:              !!window.GestureEvent,
+    touch:                !!window.TouchEvent,
+    WebKitCSSMatrix:      !!window.WebKitCSSMatrix,
+    WebKitAnimationEvent: !!window.WebKitTransitionEvent
 },
 browser  = (function(){
     var flag;
@@ -768,12 +768,13 @@ xMobi = window.xMobi = {
     scrollable: (function(){
         var scrollHeight = 0, scrollWidth = 0;
         
-        function scroll(node, trigger, data){
+        function scroll(node, data){
             var
-            left = scrollWidth + data.dx,
-            top = scrollHeight + data.dy,
-            minLeft = Math.max(0, node.offsetWidth - trigger.offsetWidth),
-            minTop  = Math.max(0, node.offsetHeight - trigger.offsetHeight);
+            wrap = node.parentNode,
+            left = scrollWidth  + data.dx,
+            top  = scrollHeight + data.dy,
+            minLeft = Math.max(0, node.offsetWidth  - wrap.offsetWidth),
+            minTop  = Math.max(0, node.offsetHeight - wrap.offsetHeight);
             
             left = data.dx < 0
                 ? 0 - Math.min(Math.abs(left), minLeft)
@@ -792,17 +793,17 @@ xMobi = window.xMobi = {
             scrollWidth  = node.offsetLeft;
         }
         
-        return function(node, trigger, enable){
+        return function(node, enable){
             if (!('scrollable' in node)) {
                 // bind event handler
-                bind(trigger, support.touch ? 'touchstart' : 'mousedown', function(){
+                bind(node, support.touch ? 'touchstart' : 'mousedown', function(){
                     node.scrollable && start(node);
                 });
-                xMobi.onDrag(trigger, function(data){
-                    node.scrollable && scroll(node, trigger, data);
+                xMobi.onDrag(node, function(data){
+                    node.scrollable && scroll(node, data);
                 });
             }
-            xMobi.dragable(trigger, node.scrollable = arguments.length === 2 ? TRUE : !!enable);
+            xMobi.dragable(node, node.scrollable = arguments.length === 1 ? TRUE : !!enable);
         }
     })(),
     

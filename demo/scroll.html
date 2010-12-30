@@ -15,26 +15,19 @@
       position: relative;
     }
     
-    div#scroll {
-      position: absolute;
-      height: 100px;
-      width: 100%;
-      top: 0;
-      left: 0;
-      z-index: 100;
-    }
-    
     ul {
-      position: relative;
       padding: 0;
       margin: 0;
       display: block;
-      z-index:90;
+      position: absolute;
     }
     
     li {
       display: block;
       height: 20px;
+      width: 300px;
+      -webkit-user-select: none;
+      -moz-user-select: none;
     }
     
     li.odd {
@@ -48,7 +41,6 @@
 </head>
 <body>
   <div id="container">
-    <div id="scroll"></div>
     <ul id="list">
       <li class="item odd">1</li>
       <li class="item even">2</li>
@@ -67,7 +59,7 @@
         return document.getElementById(id);
     }
     
-    xMobi.scrollable($('list'), $('scroll'), true);
+    xMobi.scrollable($('list'), true);
   </script>
 </body>
 </html>
