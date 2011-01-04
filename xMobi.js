@@ -33,15 +33,14 @@ support  = {
     WebKitCSSMatrix:      !!window.WebKitCSSMatrix,
     WebKitAnimationEvent: !!window.WebKitTransitionEvent
 },
-browser  = (function(){
-    var flag;
+browser  = (function(flag){
     return {
-        BlackBerry:  flag ? FALSE : (flag = !!window.blackberry),
+        scroll:      FALSE,
+        BlackBerry:  flag ? FALSE : (flag = !!BB),
         Apple:       flag ? FALSE : (flag = support.touch && /iP(ad|od|hone)/.test(UA)),
         Android:     flag ? FALSE : (flag = support.touch && /Android/.test(UA)),
         OperaMini:   flag ? FALSE : (flag = !!OPERA && /Opera Mini/.test(UA)),
-        OperaMobile: flag ? FALSE : (flag = !!OPERA && /Opera Mobi/.test(UA)),
-        scroll:      FALSE
+        OperaMobile: flag ? FALSE : (flag = !!OPERA && /Opera Mobi/.test(UA))
     };
 })(),
 
@@ -709,11 +708,12 @@ xMobi = window.xMobi = {
             if (_state != state) runStack(stack, window, state = _state);
         }
         
-        var state = getOrientation(),
+        var stack = [],
+        state = getOrientation(),
         eventName = 'orientationchange';
-        eventName = 'on' + eventName in window ? eventName : 'resize';
+        eventName = ('on' + eventName) in window ? eventName : 'resize';
         
-        return hdlRegister([], function(){
+        return hdlRegister(stack, function(){
             bind(window, eventName, handler);
         });
     })(),
@@ -981,11 +981,8 @@ for (key in support) Support[key] = genSupport(key);
 for (key in browser) Browser[key] = genBrowser(key);
 })();
 
-xMobi.onReady(function(){
-    $body = document.body;
-    support.touch && bind($body, 'touchmove', function(event){
-        browser.scroll && event.preventDefault();
-    });
+support.touch && bind($docEl, 'touchmove', function(event){
+    browser.scroll && event.preventDefault();
 });
 
 })(window);
