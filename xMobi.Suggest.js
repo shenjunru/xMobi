@@ -1,63 +1,75 @@
 /*!
  * xMobi - Suggest Module
- * version 1.0 beta
+ * version 1.0 beta 2011-3-29
  * 
- * Copyright 2010, Shen Junru
+ * Copyright 2011, Shen Junru
  * Released under the MIT License.
  * http://github.com/xfsn/xMobi
- * 
- * Date: 2010-10-01
  */
 
-(function(window, undefined){
+(function(window, document, xMobi){
+if (!xMobi) throw new Error('xMobi.Suggest requires including xMobi library');
 
 var
-xMobi    = window.xMobi || {},
-version  = '1.0 beta',
-NULL     = null,
-FN       = function(){},
-document = window.document,
-keyCode  = {
-    DOWN: 40,
-    ENTER: 13,
-    ESCAPE: 27,
-    NUMPAD_ENTER: 108,
-    PAGE_DOWN: 34,
-    PAGE_UP: 33,
-    SPACE: 32,
-    TAB: 9,
-    UP: 38
+FN   = function(){},
+NULL = null,
+_version = '1.0 beta',
+_keyCode = {
+    TAB:          9,
+    ENTER:        13,
+    ESCAPE:       27,
+    SPACE:        32,
+    PAGE_UP:      33,
+    PAGE_DOWN:    34,
+    LEFT:         37,
+    UP:           38,
+    RIGHT:        39,
+    DOWN:         40,
+    NUMPAD_ENTER: 108
 },
+
+/**
+ * proxy a function
+ * 
+ * @param {Function} fn        a function
+ * @param {Object}   instance  a instance
+ */
+$proxy = xMobi.proxy,
+
 /**
  * event handler
  * 
- * @param {Event}        event     event object
+ * @param {Event}   event     event object
  * @param {Suggest} instance  Suggest instance
  */
-keyDown = function(event, instance) {
-    if (instance.disabled) return;
+$keyDown = function(event, instance) {
     event = event || window.event;
-    var element = event.target || event.srcElement;
-    switch(event.keyCode) {
-        case keyCode.UP:
+    var key = event.keyCode;
+    if (((key == _keyCode.UP) || (key == _keyCode.DOWN)) && !instance.hasResult()) key = null;
+    switch(key) {
+        case _keyCode.LEFT:
+        case _keyCode.RIGHT:
+            break;
+        case _keyCode.UP:
             instance.prev();
             xMobi.stopEvent(event);
             break;
-        case keyCode.DOWN:
-            instance.next()
+        case _keyCode.DOWN:
+            instance.next();
             xMobi.stopEvent(event);
             break;
-        case keyCode.ENTER:
-        case keyCode.NUMPAD_ENTER:
-        case keyCode.TAB:
-            if (instance.isActive()) {
+        case _keyCode.ENTER:
+        case _keyCode.NUMPAD_ENTER:
+            instance.options.lockEnter && xMobi.stopEvent(event);
+        case _keyCode.TAB:
+            if (instance.isActived()) {
                 instance.select(instance.curIndex());
                 xMobi.stopEvent(event);
-            } else if (instance.options.force) {
+            } else if (instance.options.force && !instance.selected) {
                 instance.value('');
             }
             break;
-        case keyCode.ESCAPE:
+        case _keyCode.ESCAPE:
             instance.value(instance.options.force && instance.curIndex() < 0 ? '' : self.term);
             instance.close();
             break;
@@ -65,7 +77,8 @@ keyDown = function(event, instance) {
             // keypress is triggered before the input value is changed
             clearTimeout(instance.searching);
             instance.searching = setTimeout(function(){
-                var value = element.value;
+                var element = event.target || event.srcElement,
+                value = element.value;
                 // only search if the value has changed
                 if (instance.term != value) {
                     instance.search(instance.term = value);
@@ -81,7 +94,7 @@ keyDown = function(event, instance) {
  * @param {Object}  events  {event:handler}
  * @param {Boolean} dom0    bind as DOM 0 style
  */
-bind = function(node, events, dom0){
+$bind = function(node, events, dom0){
     for (var event in events) xMobi.bindEvent(node, event, events[event], dom0);
     return node;
 },
@@ -93,7 +106,7 @@ bind = function(node, events, dom0){
  * 
  * @return {Boolean}
  */
-visible = function(node){
+$visible = function(node){
     return node.offsetWidth > 0 || node.offsetHeight > 0;
 },
 
@@ -104,13 +117,12 @@ visible = function(node){
  * 
  * @return {Object} item object
  */
-normalize = function(item){
-    return item.label && item.value
-        ? item
-        : {
-            label: item,
-            value: item
-        };
+$normalize = function(item){
+    return {
+        label: item.label || item.text || item,
+        text:  item.text  || item,
+        value: item.value || item
+    };
 },
 
 /**
@@ -120,7 +132,7 @@ normalize = function(item){
  * 
  * @return {String}
  */
-escapeRegex = function( value ) {
+$escapeRegex = function(value) {
     return value.replace(/[-[\]{}()*+?.,\\^$|#\s]/g, '\\$&');
 },
 
@@ -130,36 +142,34 @@ escapeRegex = function( value ) {
  * @param {Array}  array  an array
  * @param {String} term   term for match
  */
-filter = function(array, term) {
-    var matcher = new RegExp(escapeRegex(term), 'i'),
+$filter = function(array, term) {
+    var matcher = new RegExp($escapeRegex(term), 'i'),
     results = [], i = 0, l = array.length, item;
     for (; i < l; i++) {
         item = array[i];
-        if (matcher.test(item.label || item.value || item)) {
+        if (matcher.test(item.text || item.value || item)) {
             results.push(item);
         }
     }
     return results;
 },
 
-/**
- * call a function
- * 
- * @param {Function} fn        a function
- * @param {Object}   instance  a instance
- */
-call = function(fn, instance){
-    if (typeof fn === 'function') try {
-        return fn.apply(instance, [].slice.call(arguments, 2));
-    } catch (e) {}
+$scrollIntoView = function(node, alignTop, wrap){
+    wrap = wrap || node.parentNode;
+    var tHeight = wrap.offsetHeight,
+        iHeight = node.offsetHeight,
+        iTop = node.offsetTop,
+        sTop = wrap.scrollTop;
+    
+    wrap.scrollTop = alignTop
+        ? (iTop < sTop ? sTop - iHeight : wrap.scrollHeight)
+        : ((iTop + iHeight) > (sTop + tHeight) ? sTop + iHeight : 0);
 },
 
 /**
  * Class: Suggest
  * 
- * @param {Element} uiInput    dom element for input
- * @param {Element} uiResults  dom element for render results
- * @param {Object}  options    initialize options
+ * @param {Object} options  initialize options
  */
 Suggest = xMobi.Suggest = function(uiInput, uiResults, options){
     var self = this;
@@ -170,12 +180,16 @@ Suggest = xMobi.Suggest = function(uiInput, uiResults, options){
         delay:  250,
         // search source, array or function(trem){return an array of search results}
         source: NULL,
+        // prevent default action of press enter key
+        lockEnter: true,
         // value must from search results
         force:  false,
         // initialize immediately
         init:   true,
+        // tip for the input element
+        tip:    '',
         
-        // callback function
+        // callback functions
         // input focusing
         focus:  NULL,
         // input bluring
@@ -192,6 +206,8 @@ Suggest = xMobi.Suggest = function(uiInput, uiResults, options){
         mark:   NULL,
         // selecting item 
         select: NULL,
+        // key down in the input
+        keyDown: NULL,
         // no data matched
         noMatch: NULL
     }, options || {});
@@ -202,13 +218,16 @@ Suggest = xMobi.Suggest = function(uiInput, uiResults, options){
     self.uiInput   = uiInput;
     self.uiResults = uiResults;
     self.disabled  = false;
-    self.active    = false;
-        
-    uiInput.setAttribute('autocomplete', 'off');
+    self.actived   = false;
+    self.selected  = false;
+    
+    self.uiInput.setAttribute('autocomplete', 'off');
     options.init && self.init();
 };
-Suggest.version = function(){return version;};
-Suggest.filter = filter;
+Suggest.version = function(){return _version;};
+Suggest.proxy   = $proxy;
+Suggest.filter  = $filter;
+Suggest.normalize   = $normalize;
 Suggest.constructor = Suggest;
 Suggest.prototype = {
     /**
@@ -218,27 +237,41 @@ Suggest.prototype = {
         var self = this, options = self.options;
         self.bindSource(options.source);
         
-        bind(self.uiInput, {
+        $bind(self.uiInput, {
             keydown: function(event){
-                keyDown(event || window.event, self);
-            },
-            focus: function(){
                 if (!self.disabled) {
-                    self.prevTerm = this.value;
-                    call(self.options.focus, self);
+                    self.onKeyDown(event, this);
+                    $keyDown(event, self);
                 }
             },
-            blur: function(){
+            focus: function(event){
+                if (!self.disabled) {
+                    if (this.value == self.options.tip) this.value = '';
+                    self.prevTerm = this.value;
+                    self.onFocus(event, this);
+                }
+            },
+            blur: function(event){
                 if (!self.disabled) {
                     clearTimeout(self.searching);
                     // clicks on the menu (or a button to trigger a search) will cause a blur event
                     self.closing = setTimeout(function(){
                         self.close();
                     }, 150);
-                    call(self.options.blur, self);
+                    self.showTip();
+                    self.onBlur(event, this);
                 }
             }
         });
+        
+        self.showTip();
+    },
+    
+    /**
+     * show the tip, if needed
+     */
+    showTip: function(){
+        if (this.options.tip && !/\S/.test(this.uiInput.value)) this.uiInput.value = this.options.tip;
     },
     
     /**
@@ -251,7 +284,8 @@ Suggest.prototype = {
         var self = this, array, url;
         if (source instanceof Array) {
             self.source = function(term) {
-                self.response(filter(source, term));
+                self.onStart();
+                self.response($filter(source, term));
             };
         } else {
             self.source = typeof source === 'function' ? source : FN;
@@ -266,11 +300,11 @@ Suggest.prototype = {
     search: function(term){
         var self = this;
         term = term || '';
+        self.selected  = false;
         if (term.length >= self.options.chars) {
             clearTimeout(self.closing);
             self.term = term;
-            self.orgItem = normalize(term);
-            call(self.options.start, self);
+            self.orgItem = $normalize(term);
             self.source(term);
         } else {
             self.close();
@@ -286,14 +320,12 @@ Suggest.prototype = {
         var self = this;
         if (items && items.length) {
             self.render(items);
-            call(self.options.open, self);
+            self.onOpen(items);
         } else {
-            call(self.options.noMatch, self);
+            self.onNoMatch();
             self.close();
         }
     },
-    
-    normalize: normalize,
     
     /**
      * render result items
@@ -301,10 +333,10 @@ Suggest.prototype = {
      * @param {Array} items  items data
      */
     render: function(items){
-        var self = this, results = document.createDocumentFragment();
-        self._render(items, results, 'appendChild');
+        var self = this, results = self.genResults();
+        self._render(items, results.object, results.method);
         self.uiResults.innerHTML = '';
-        self.uiResults.appendChild(results);
+        self.uiResults.appendChild(results.object);
     },
     
     /**
@@ -322,15 +354,28 @@ Suggest.prototype = {
             
             self.items   = [];
             self.curItem = NULL;
-            self.active  = true;
+            self.actived = true;
             
-            call(self.options.render, self, items);
+            self.onRender(items);
+            
             for (; item = items[i]; i++) {
-                self.items.push(item = normalize(item));
+                self.items.push(item = $normalize(item));
                 results[method](item.ui = self.genItem(item, i));
                 item.index = i;
             }
         }
+    },
+    
+    /**
+     * generate the results collection object
+     * 
+     * @return {Object} results object
+     */
+    genResults: function(){
+        return {
+            object: document.createElement('ul'),
+            method: 'appendChild'
+        };
     },
     
     /**
@@ -343,9 +388,9 @@ Suggest.prototype = {
      */
     genItem: function(item, index){
         var self = this, uiItem = document.createElement('li');
-        uiItem.innerHTML = item.label;
+        uiItem.innerHTML = item.label || item.text || item;
         uiItem.itemIndex = index;
-        return bind(uiItem, {
+        return $bind(uiItem, {
             click: function(){
                 self.select(this.itemIndex);
             }
@@ -367,7 +412,9 @@ Suggest.prototype = {
      */
     next: function(){
         var self = this, index  = self.curIndex();
-        self.mark(++index >= self.items.length ? -1 : index);
+        if (self.hasResult()) {
+            self.mark(++index >= self.items.length ? (self.options.force ? 0 : -1) : index, false);
+        }
     },
     
     /**
@@ -375,7 +422,9 @@ Suggest.prototype = {
      */
     prev: function(){
         var self = this, index  = self.curIndex();
-        self.mark(--index < -1 ? self.items.length - 1 : index);
+        if (self.hasResult()) {
+            self.mark(--index < (self.options.force ? 0 : -1) ? self.items.length - 1 : index, true);
+        }
     },
     
     /**
@@ -394,14 +443,14 @@ Suggest.prototype = {
      * 
      * @param {Integer} index  item index
      */
-    mark: function(index){
+    mark: function(index, alignTop){
         var self = this,
         item    = self.item(index),
         last    = self.curItem || {},
         current = item || last;
-        if (last !== current && false !== call(self.options.mark, self, last, current)) {
+        if (last !== current && false !== self.onMark(last, current, alignTop)) {
             self.curItem = item;
-            self.value(current.label || '');
+            self.value(current.text || '');
         }
     },
     
@@ -414,9 +463,10 @@ Suggest.prototype = {
         var self = this, item;
         index = self.options.force && (index === -1) ? 0 : index;
         if (item = self.item(index)) {
-            if (false !== call(self.options.select, self, item)) {
+            self.selected = true;
+            if (false !== self.onSelect(item, self.uiInput)) {
                 self.curItem = item;
-                self.value(item.label || '');
+                self.value(item.text || '');
             }
             self.close();
         }
@@ -438,9 +488,9 @@ Suggest.prototype = {
      * close results list
      */
     close: function(){
-        this.active = false;
+        this.actived = false;
         this.clean();
-        call(this.options.close, this);
+        this.onClose();
     },
     
     /**
@@ -453,13 +503,81 @@ Suggest.prototype = {
     },
     
     /**
+     * reset
+     */
+    reset: function(){
+        this.uiInput.value = '';
+        this.close();
+    },
+    
+    /**
      * check Suggest is actived or not
      * 
      * @return {Boolean}
      */
-    isActive: function(){
-        return this.active && visible(this.uiResults);
+    isActived: function(){
+        return this.actived && $visible(this.uiResults);
+    },
+    
+    /**
+     * show the results list
+     */
+    showResults: function(){
+        this.uiResults.style.display = 'block';
+    },
+    
+    /**
+     * hide the results list
+     */
+    hideResults: function(){
+        this.uiResults.style.display = 'none';
+    },
+    
+    /**
+     * check result exists
+     * 
+     * @return {Boolean}
+     */
+    hasResult: function(){
+        return this.items && this.items.length;
+    },
+    
+    // callback functions
+    onFocus: function(event, input){
+        return $proxy(this.options.focus, this, event, input);
+    },
+    onBlur: function(event, input){
+        return $proxy(this.options.blur, this, event, input);
+    },
+    onStart: function(){
+        return $proxy(this.options.start, this);
+    },
+    onOpen: function(items){
+        return $proxy(this.options.open, this, items);
+    },
+    onClose: function(){
+        return $proxy(this.options.close, this);
+    },
+    onRender: function(items){
+        return $proxy(this.options.render, this, items);
+    },
+    onMark: function(last, current, alignTop){
+        if (last.ui)    xMobi.delClass(last.ui, 'selected');
+        if (current.ui) {
+            xMobi.addClass(current.ui, 'selected');
+            $scrollIntoView(current.ui, !!alignTop, this.uiResults);
+        }
+        return $proxy(this.options.mark, this, last, current, alignTop);
+    },
+    onSelect: function(item, input){
+        return $proxy(this.options.select, this, item, input);
+    },
+    onKeyDown: function(event, input){
+        return $proxy(this.options.keyDown, this, event, input);
+    },
+    onNoMatch: function(){
+        return $proxy(this.options.noMatch, this);
     }
 };
 
-})(window);
+})(window, document, xMobi);

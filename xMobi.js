@@ -1,12 +1,10 @@
 /*!
  * xMobi - Mobile JavaScript Library
- * version 1.0 beta
+ * version 1.0 beta 2011-3-29
  * 
- * Copyright 2010, Shen Junru
+ * Copyright 2011, Shen Junru
  * Released under the MIT License.
  * http://github.com/xfsn/xMobi
- * 
- * Date: 2010-12-30
  */
 (function(window, undefined){
 
@@ -83,12 +81,12 @@ extend = function(destination, source){
 },
 
 /**
- * call a function
+ * proxy a function
  * 
  * @param {Function} fn        a function
  * @param {Object}   instance  a instance
  */
-call = function(fn, instance){
+proxy = function(fn, instance){
     if (typeof fn === 'function') try {
         return fn.apply(instance || NULL, [].slice.call(arguments, 2));
     } catch (e) {
@@ -414,7 +412,7 @@ touchInit = (function(){
      */
     move = function(node, data){
         // call custom drag event handler or newPosition to calculate the new position data
-        data = call(getEventStack(node, 'drag')[0] || newPosition, node, data, newPosition);
+        data = proxy(getEventStack(node, 'drag')[0] || newPosition, node, data, newPosition);
         if (data) {
             node.style.left = data.x + 'px';
             node.style.top = data.y + 'px';
@@ -621,7 +619,7 @@ cssClass = function(node, names, remove){
 xMobi = window.xMobi = {
     version: function(){return version;},
     // Util
-    call:         call,
+    proxy:        proxy,
     extend:       extend,
     timeStamp:    timeStamp,
     runScript:    runScript,
